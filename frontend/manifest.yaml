@@ -2,11 +2,15 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: nginx
+  namespace: roboshop
 data:
   nginx.conf: |
     user nginx;
+
     worker_processes auto;
+
     error_log /var/log/nginx/error.log notice;
+
     pid /run/nginx.pid;
 
     include /usr/share/nginx/modules/*.conf;
@@ -23,17 +27,22 @@ data:
       access_log /var/log/nginx/access.log main;
 
       sendfile on;
+
       tcp_nopush on;
+
       keepalive_timeout 65;
+
       types_hash_max_size 4096;
 
       include /etc/nginx/mime.types;
+
       default_type application/octet-stream;
 
       include /etc/nginx/conf.d/*.conf;
 
       server {
         listen 80;
+
         listen [::]:80;
 
         server_name _;
@@ -85,13 +94,12 @@ data:
       }
     }
 
----------
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: frontend
   namespace: roboshop
-  # labels related to deployment resources
   labels:
     project: roboshop
     tier: frontend
@@ -103,7 +111,6 @@ spec:
       project: roboshop
       tier: frontend
       component: frontend
-    # pod
   template:
     metadata:
       labels:
@@ -112,37 +119,39 @@ spec:
         component: frontend
     spec:
       containers:
-      - name: frontend
-        image: joindevops/frontend:4.0.0
-        volumeMounts:
+        - name: frontend
+          image: joindevops/frontend:4.0.0
+          volumeMounts:
+            - name: nginx-config
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+              readOnly: true
+
+      volumes:
         - name: nginx-config
-          mountPath: /etc/nginx/nginx.conf
-          subPath: nginx.conf  # ensures only this file overrides
-          readOnly: true
----   # This is pod level it is like adding the disk to the pod
-       volumes:
-       - name: nginx-config
-         configMap:
-          name: nginx
-          items:
-          - key: nginx.conf
-            path: nginx.conf     
-       apiVersion: v1
-       kind: Service
-       metadata:
-       name: frontend
-       namespace: roboshop
-       labels:
-       project: roboshop
-       tier: frontend
-       component: frontend
-       spec:
-        type: LoadBalancer
-       selector:
-       project: roboshop
-       tier: frontend
-       component: frontend
-       ports:
-       - protocol: TCP
-         port: 80 # service port
-         targetPort: 80 # container port
+          configMap:
+            name: nginx
+            items:
+              - key: nginx.conf
+                path: nginx.conf
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: roboshop
+  labels:
+    project: roboshop
+    tier: frontend
+    component: frontend
+spec:
+  type: LoadBalancer
+  selector:
+    project: roboshop
+    tier: frontend
+    component: frontend
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
