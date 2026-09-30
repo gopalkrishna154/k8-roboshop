@@ -46,10 +46,28 @@ spec:
       containers:
         - name: shipping
           image: joindevops/shipping:4.0.0
-
-          envFrom:
-            - configMapRef:
-                name: shipping
+          ports: 
+        - name: liveness-port
+          containerPort: 8080
+      startupProbe:
+        httpGet:
+        path: /health
+        port: liveness-port
+      failureThreshold: 12  # Try up to 30 times
+      periodSeconds: 10     # Check every 10 seconds (Max 300s / 5 min total) 
+      readinessProbe:
+        httpGet:
+        path: /health
+        port: liveness-port
+        periodSeconds: 10
+      livenessProbe:
+        httpGet:
+        path: /health
+        port: liveness-port
+        periodSeconds: 10
+      envFrom:
+      - configMapRef:
+          name: shipping
 
 ---
 apiVersion: v1
